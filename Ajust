@@ -1,0 +1,355 @@
+package com.Benjohn.com;
+
+import java.io.File;
+
+import Jama.Matrix;
+//间接平差水准类
+class ShuizhunInajust{
+	
+	static java.text.DecimalFormat Format=new java.text.DecimalFormat("#.000");
+	public double Det0;//单位权中误差
+	public Matrix Mx,Mqll,Mqll1,Mv,Mqvv;//X改正数，QLL矩阵,QLL1矩阵,QVV矩阵
+	public Matrix MX,MqXX;//X最似然值
+	
+	public double [][]Parry,Aarry;String Szhongjian="未知点近似坐标是：\r\n";
+	public double [][]l; double [][]Xarry;
+	
+
+//数据处理过程//
+//输入为文件数据容器//
+//输出为间接平差的矩阵//
+public void Process(ShuizhunFileInput Data ) {
+	
+  int i,j;
+  l=new double[Data.Obsercount][1];//l观测值数组
+  Xarry=new double[Data.Unkonwcount][1];//X0数组
+	      
+	//计算近似高程值
+	//遍历所有的未知点
+	for (i=Data.Konwcount;i<=Data.Count-1;i++){
+	//在边的数组中寻找起点或者终点
+	  for (j=0;j<=Data.Obsercount-1;j++) {
+		  //读入观测值数据
+		  //未知点是边的起点,并且边的终点已知,那么计算未知点的近似高程
+		  if((Data.PointArry[i].equals(Data.SideArry[j].Pstart) && !Data.SideArry[j].Pend.IsEmty())) {
+			  Data.PointArry[i].H=Data.SideArry[j].Pend.H-Data.SideArry[j].Dispersion;
+			  Szhongjian=Szhongjian+Data.PointArry[i].Pname + " ,"+Format.format(Data.PointArry[i].H)+"\r\n";
+			  Xarry[i-Data.Konwcount][0]=Data.PointArry[i].H;
+		  break;}
+		  //未知点是边的终点,并且边的终点已知,那么计算未知点的近似高程
+		  if(Data.PointArry[i].equals(Data.SideArry[j].Pend) && !Data.SideArry[j].Pstart.IsEmty()) { 
+			  Data.PointArry[i].H=Data.SideArry[j].Pstart.H+Data.SideArry[j].Dispersion;
+			  Szhongjian=Szhongjian+Data.PointArry[i].Pname +" ,"+ Format.format(Data.PointArry[i].H) +"\r\n";
+			  Xarry[i-Data.Konwcount][0]=Data.PointArry[i].H;
+		  break;}
+	  }
+	}
+	
+	//建立权方程，系数方程,常数项
+	Aarry=new double[Data.Obsercount][Data.Unkonwcount];
+	Parry=new double[Data.Obsercount][Data.Obsercount];
+	
+	//列出误差方程
+	//对边进行遍历
+	for (i=0;i<=Data.Obsercount-1;i++) {
+		//如果起点已知，终点未知，那么l向量应该为 H1-H2+L=l
+		if (Data.SideArry[i].Pstart.Order<=Data.Konwcount-1 && Data.SideArry[i].Pend.Order>Data.Konwcount-1) {
+			Aarry[i][Data.SideArry[i].Pend.Order-Data.Konwcount]=1;
+			l[i][0]=Data.SideArry[i].Pstart.H-Data.SideArry[i].Pend.H+Data.SideArry[i].Dispersion;
+		}
+		//如果起点未知，终点已知，那么l向量应该为 H1-H2+L=l
+		else if (Data.SideArry[i].Pstart.Order>Data.Konwcount-1 && Data.SideArry[i].Pend.Order<=Data.Konwcount-1 ) {
+			Aarry[i][Data.SideArry[i].Pstart.Order-Data.Konwcount]=-1;
+			l[i][0]=Data.SideArry[i].Pstart.H-Data.SideArry[i].Pend.H+Data.SideArry[i].Dispersion;
+		}
+		//如果起始点和终点都未知，那么l向量应该为 H1-H2+L=l
+		else if(Data.SideArry[i].Pstart.Order>Data.Konwcount-1 && Data.SideArry[i].Pend.Order>Data.Konwcount-1 ) {
+			Aarry[i][Data.SideArry[i].Pend.Order-Data.Konwcount]=1;
+			Aarry[i][Data.SideArry[i].Pstart.Order-Data.Konwcount]=-1;
+			l[i][0]=Data.SideArry[i].Pstart.H-Data.SideArry[i].Pend.H+Data.SideArry[i].Dispersion;
+		}
+		//如果起点和终点都已知，那么报错终止程序
+		else System.exit(0);
+		//计算系数矩阵
+		Parry[i][i]=1/Data.SideArry[i].Distance;
+	}
+
+	}
+//间接平差过程	
+//输入数据为类内矩阵
+//输出为计算结果
+	public void Caculate(){
+		int m=Aarry.length,n=Aarry[0].length;//获取矩阵的维数
+		//定义类内矩阵的大小
+		Mqvv=new Matrix(m,m);Mv=new Matrix(m,1);
+		Mqll=new Matrix(m,m);Mqll1=new Matrix(m,m);
+		MqXX=new Matrix(n,n);
+		
+		//转换传入的矩阵
+		Matrix Ma=new Matrix(Aarry);Matrix Mp=new Matrix(Parry);Matrix Ml=new Matrix(l);MX=new Matrix(Xarry);
+		
+		//定义计算需要的中间矩阵
+		Matrix MATP=new Matrix(n,m);//ATP中间矩阵
+		Matrix MNaa=new Matrix(n,n);//Naa矩阵
+		Mx=new Matrix(m,1);//参谁改正数向量
+		
+		//计算过程
+        MATP=Ma.transpose().times(Mp);//系数矩阵转置和p矩阵的乘积
+		MNaa=MATP.times(Ma);//Naa矩阵
+		                         MqXX=MNaa.inverse();//Naa的逆阵，也是X的协因数阵
+		Mx=MqXX.times(MATP.times(Ml));//计算参数的改正数
+		MX=MX.plus(Mx);//计算参数的最或然值
+		Mv=(Ma.times(Mx)).minus(Ml); //计算观测值改正数
+		
+	
+	//精度评定
+		Mqll=Mp.inverse();//观测值协因数矩阵
+		Mqll1=Ma.times(MqXX.times(MATP));//改正后观测值协因数矩阵
+		Mqvv=Mqll.minus( 
+		   (  ( Ma.times(MqXX) ).times( Ma.transpose() )  )
+		               );//QVV矩阵
+		
+		Det0=(Mv.transpose().times(Mp).times(Mv)).get(0, 0);
+		Det0=Math.sqrt(Math.abs(Det0/(m-n)))*1000;//mm级
+		
+		MqXX=MqXX.times(Det0*Det0);//X改正數中誤差
+		Mqll=Mqll.times(Det0*Det0);//观测值中误差
+		Mqll1=Mqll1.times(Det0*Det0);//改正后观测值中误差
+		Mqvv=Mqvv.times(Det0*Det0);//观测值改正数中误差	
+	}
+		
+}
+
+
+//间接平差边角网类
+class BianjiaoAjust {
+	static double RU=180/Math.PI*3600;
+	static java.text.DecimalFormat Format=new java.text.DecimalFormat("#.0000");
+	
+	public double Det0;//单位权中误差
+	public Matrix Mx,Mqll,Mqll1,Mv,Mqvv;//X改正数，QLL矩阵,QLL1矩阵,QVV矩阵
+	public Matrix Mrevernaa,MX;//NAA逆阵(QXX1)
+	
+	public double [][]larry;//常数向量
+	public double [][]Aarry;//系数矩阵
+	public double []Parry;//权矩阵
+	public double [][]Xarry;
+	public Point[] PointArry;
+	public Bearing[] BearingArry;
+	public Side[] SideArry;
+	private int Count;
+//数据处理过程//
+
+	public void Process(BianjiaoInput Data) {
+		this.PointArry=Data.PointArry;
+		this.BearingArry=Data.BearingArry;
+		this.SideArry=Data.SideArry;
+		
+		int i;
+		int SumCount=0;
+		double [][]Aarry1,larry1;
+		if (Data.AngleObserCount!=0) SumCount=Data.Count;
+	    
+		Aarry1=new double[Data.AngleObserCount+Data.SideObserCount+SumCount][2*Data.Count];
+		larry1=new double[Data.AngleObserCount+Data.SideObserCount+SumCount][1];
+		double[] Parry1=new double[Data.AngleObserCount+Data.SideObserCount+SumCount];
+		//边长误差方程的列立
+	    for (i=0;i<=Data.SideObserCount-1;i++) {
+	    	double Dx,Dy,CosA,SinA;
+	    	
+	    	Dx=Data.SideArry[i].Pend.X-Data.SideArry[i].Pstart.X;
+	    	Dy=Data.SideArry[i].Pend.Y-Data.SideArry[i].Pstart.Y;
+	    	CosA=Dx/Data.SideArry[i].Distance;
+	    	SinA=Dy/Data.SideArry[i].Distance;
+	    	
+	    	Aarry1[i][2*Data.SideArry[i].Pstart.Order  ]=-CosA;
+	    	Aarry1[i][2*Data.SideArry[i].Pstart.Order+1]=-SinA;
+	    	Aarry1[i][2*Data.SideArry[i].Pend.Order  ]=CosA;
+	    	Aarry1[i][2*Data.SideArry[i].Pend.Order+1]=SinA;
+	    	
+	    	larry1[i][0]=Data.SideArry[i].Distance-Data.SideArry[i].ObserDistance;
+	    	
+	    	Parry1[i]=Data.SideError1+Data.SideArry[i].ObserDistance*Data.SideError2*0.001;
+	    	Parry1[i]=100/Math.pow(Parry1[i], 2);
+        }
+	    
+	    int count=0;
+	    
+	   if (Data.AngleObserCount!=0) { 
+	    //角度虚拟误差方程的列立
+	    count=1;
+	    double[][]AngleA=new double[Data.Count][2*Data.Count];
+	    double []Anglel=new double[Data.Count];
+	    double []AngleP=new double[Data.Count];
+	    double Z0 = 0;
+	    int j=0;double Sumai=0.0,Sumbi=0.0,Suml=0.0,p=0.0;
+	    //遍历所有的未知边
+	    //建立角度虚拟误差方程
+	    for (;i<=Data.SideObserCount+Data.AngleObserCount-1;i++) {
+	    	double Dx,Dy,ai,bi;
+	    	
+	    	Dx=Data.BearingArry[i-Data.SideObserCount].Pend.X-Data.BearingArry[i-Data.SideObserCount].Pstart.X;
+	    	Dy=Data.BearingArry[i-Data.SideObserCount].Pend.Y-Data.BearingArry[i-Data.SideObserCount].Pstart.Y;
+	    	ai=RU*Dy/Data.BearingArry[i-Data.SideObserCount].Distance/100;
+	    	bi=-RU*Dx/Data.BearingArry[i-Data.SideObserCount].Distance/100;
+	    	
+	    	Data.BearingArry[i-Data.SideObserCount].getAzimuth();
+	    	//判断是否为第一个测站
+	    	if (i==Data.SideObserCount)  {
+	    		Aarry1[i][2*Data.BearingArry[i-Data.SideObserCount].Pstart.Order  ]=ai;
+		    	Aarry1[i][2*Data.BearingArry[i-Data.SideObserCount].Pstart.Order+1]=bi;
+		    	Aarry1[i][2*Data.BearingArry[i-Data.SideObserCount].Pend.Order    ]=-ai;
+		    	Aarry1[i][2*Data.BearingArry[i-Data.SideObserCount].Pend.Order+1  ]=-bi;
+		    	larry1[i][0]=0;
+		    	Parry1[i]=1/Data.AngleError/Data.AngleError;
+		    	p+=Parry1[i];
+		    	Z0=Data.BearingArry[i-Data.SideObserCount].Azimuth-Data.BearingArry[i-Data.SideObserCount].AngleHu;
+		    	continue;
+	    	}
+	    	//建立误差方程
+	    	Aarry1[i][2*Data.BearingArry[i-Data.SideObserCount].Pstart.Order  ]=ai;
+	    	Aarry1[i][2*Data.BearingArry[i-Data.SideObserCount].Pstart.Order+1]=bi;
+	    	Aarry1[i][2*Data.BearingArry[i-Data.SideObserCount].Pend.Order    ]=-ai;
+	    	Aarry1[i][2*Data.BearingArry[i-Data.SideObserCount].Pend.Order+1  ]=-bi;
+	    
+	    	Parry1[i]=1/Data.AngleError/Data.AngleError;
+
+	    	//判断是否为同一个测站
+	    	//如果为真那么  计算  虚拟误差方程系数
+	    	//如果为假那么  计算 和虚拟误差方程 并且计算出Z0参数  
+	    	if (Data.BearingArry[i-Data.SideObserCount].Pstart.equals(Data.BearingArry[i-1-Data.SideObserCount].Pstart)) {
+	    		count++;Sumai+=ai;Sumbi+=bi;
+	    		larry1[i][0]=Data.BearingArry[i-Data.SideObserCount].AngleHu-Data.BearingArry[i-Data.SideObserCount].Azimuth+Z0;
+	    		p+=Parry1[i];
+	    		Suml+=larry1[i][0];
+	    	}
+	    	else {
+	    		AngleA[j][2*Data.BearingArry[i-Data.SideObserCount].Pstart.Order]=Sumai/count;
+	    		AngleA[j][2*Data.BearingArry[i-Data.SideObserCount].Pstart.Order+1]=Sumbi/count;
+	    		AngleA[j][2*Data.BearingArry[i-Data.SideObserCount].Pend.Order]=-Sumai/count;
+	    		AngleA[j][2*Data.BearingArry[i-Data.SideObserCount].Pend.Order+1]=-Sumbi/count;
+	    		Z0=Data.BearingArry[i-Data.SideObserCount].Azimuth-Data.BearingArry[i-Data.SideObserCount].AngleHu;
+	    		larry1[i][0]=0;
+	    		Anglel[j]=Suml/count;AngleP[j]=1.0/p;
+	    		Sumai=0.0;Sumbi=0.0;Suml=0.0;j++;count=1;p=Parry1[i];
+	    	}
+	    	if(i==Data.AngleObserCount+Data.SideObserCount-1) {
+	    	AngleA[j][2*Data.BearingArry[i-Data.SideObserCount].Pstart.Order]=Sumai/(count+1);
+			AngleA[j][2*Data.BearingArry[i-Data.SideObserCount].Pstart.Order+1]=Sumbi/(count+1);
+			AngleA[j][2*Data.BearingArry[i-Data.SideObserCount].Pend.Order]=-Sumai/(count+1);
+			AngleA[j][2*Data.BearingArry[i-Data.SideObserCount].Pend.Order+1]=-Sumbi/(count+1);
+			Anglel[j]=Suml/(count+1);AngleP[j]=1.0/(p+Parry1[i]);}
+	    }	    
+		count=j+1;int k=0;
+		this.Count=count;
+		//组合边长 方程和  角度虚拟观测方程（主要是和虚拟误差方程）
+		for (;i<=Data.SideObserCount+Data.AngleObserCount+count-1;i++){
+			for (j=0;j<=2*Data.Unkonwcount-1;j++) Aarry1[i][j]=AngleA[k][j];
+			Parry1[i]=AngleP[k];
+			larry1[i][0]=Anglel[k];
+			k++; 
+		}
+	   }
+	 //至此 系数方程，常数向量，权阵已经列出   数据处理过程结束 
+	 //现在将参数放置入X向量中
+	   Xarry=new double[2*Data.Unkonwcount][1];
+	   int j=0;
+	   for (i=Data.Konwcount;i<=Data.Count-1;i++) {
+		   Xarry[2*j][0]=Data.PointArry[i].X;
+		   Xarry[2*j+1][0]=Data.PointArry[i].Y;
+		   j++;
+	   }
+	 //由于带入了已知点作为未知点一样列出了平差方程
+	 //所以需要取出只含有未知点的A矩阵
+	   Aarry=new double[Data.AngleObserCount+Data.SideObserCount+count][2*Data.Unkonwcount];
+	   Parry=new double[Data.AngleObserCount+Data.SideObserCount+count];
+	   larry=new double[Data.AngleObserCount+Data.SideObserCount+count][1];
+	   for (i=0;i<=Data.AngleObserCount+Data.SideObserCount+count-1;i++) {
+		   for (j=2*Data.Konwcount;j<=2*Data.Count-1;j++) 
+			   Aarry[i][j-2*Data.Konwcount]=Aarry1[i][j];
+		   Parry[i]=Parry1[i];larry[i][0]=larry1[i][0];
+	   }
+	   Matrix MA=new Matrix(Aarry);
+   
+	}
+	
+	
+	public void Caculate() {
+		int m=Aarry.length;int n=Aarry[0].length;//系数矩阵的行列数
+		int i=0;Det0=0;
+		
+		
+		Matrix Ma=new Matrix(Aarry); Matrix Ml=new Matrix(larry); 
+		Matrix Matp=new Matrix(n,m);Matrix Mnaa=new Matrix(n,n);Matrix W=new Matrix(m,1);
+		Matrix Mx=new Matrix(m,1); MX=new Matrix(Xarry);Mv=new Matrix(m+Count,1);
+		Matrix Mp=new Matrix(m,m);Mqll=new Matrix(m,m);
+		
+		for (i=0;i<=m-1;i++)  Mp.set(i, i, 1/Parry[i]);
+		Matp=Ma.transpose().times(Mp);
+		Ml.times(-1);
+		Mnaa=Matp.times(Ma);
+		W=Matp.times(Ml);//NAA与W矩阵已经求出
+	
+		Mrevernaa=Mnaa.inverse();//计算出NAA的逆阵
+		Mx=Mrevernaa.times(W);
+		Mv=Ma.times(Mx).minus(Ml);//计算X改正数和V改正数
+		MX=MX.plus(Mx);//计算参数的最似然值
+		//对于测方向网，需要将和误差方程中的V去除
+		if(Count!=0) {
+			int CS=SideArry.length;
+			int CB=BearingArry.length;
+			 Matrix Mv1=Mv.copy();
+			Mv=new Matrix(m,1);
+			for(i=0;i<=m-1;i++) {
+				Mv.set(i, 0, Mv1.get(i, 0));
+			}
+			for(i=0;i<=CS-1;i++) Det0+=Math.pow(Mv.get(i, 0),2)*Mp.get(i, i);//计算出边长的单位权中误差
+			for(i=CS;i<=CS+CB-1;i++) Det0+=Math.pow(Mv.get(i, 0),2)*Mp.get(i, i)*0.1;//角度中1秒对应1分米
+			Det0=Math.sqrt(Math.abs(Det0/(m-n)));//m级
+		}
+		else {
+			Det0=(Mv.transpose().times(Mp).times(Mv)).get(0, 0);
+			Det0=Math.sqrt(Math.abs(Det0/(m-n)));//m级
+		}
+		//精度评定		
+		Mqll=Mp;
+		Mqll1=Ma.times(Mrevernaa.times(Matp));//改正后观测值协因数矩阵
+				Mqvv=Mqll.minus( 
+				   (  ( Ma.times(Mrevernaa) ).times( Ma.transpose() )  )
+				               );//QVV矩阵
+				Mrevernaa=Mrevernaa.times(Det0*Det0);//X改正數中誤差
+				Mqll=Mqll.times(Det0*Det0);//观测值中误差
+				Mqll1=Mqll1.times(Det0*Det0);//改正后观测值中误差
+				Mqvv=Mqvv.times(Det0*Det0);//观测值改正数中误差	
+	}
+	//对点位中误差进行赋值
+	public Point[] GetDm() {
+		int i=0;int b=PointArry.length-MX.getColumnDimension()/2-1;
+		for (i=0;i<=MX.getColumnDimension()/2-1;i++) {
+			PointArry[b+i/2].X=Math.sqrt(MX.get(2*i, 0));
+			PointArry[b+i/2].dMx=Math.sqrt(Mrevernaa.get(2*i, 2*i));
+			PointArry[b+i/2].Y=Math.sqrt(MX.get(2*i+1, 0));
+			PointArry[b+i/2].dMy=Math.sqrt(Mrevernaa.get(2*i+1, 2*i+1));
+			PointArry[b+i/2].dMxy=Math.sqrt(Mrevernaa.get(2*i, 2*i+1));
+			PointArry[b+i/2].GetDM();
+			PointArry[b+i/2].GetQ(Det0);
+		}	
+		return PointArry;
+	}
+}
+
+public class Ajust{
+	   public static void main(String args[]) {
+		   BianjiaoInput Data =new BianjiaoInput();
+		   BianjiaoAjust A=new BianjiaoAjust();
+		   String Pathname= "B:"+File.separator+"bian.txt" ;;
+		   Data.ReadBianjiao(Pathname);
+		   A.Process(Data);
+		   A.Caculate();
+		   int m=A.MX.getColumnDimension();
+		   int n=A.MX.getRowDimension();
+		   A.MX.print(m, 3);
+		   A.Mrevernaa.print(n,4);
+		   System.out.println(A.Det0);	 
+	   }
+	}
