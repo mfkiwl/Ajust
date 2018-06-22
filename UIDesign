@@ -1,0 +1,382 @@
+package com.Benjohn.com;
+
+import java.awt.BorderLayout;
+import java.awt.GridLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+
+import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
+
+class UI{
+	
+	public JMenuItem itemOpen,itemSave,itemDelte,itemCloseerr,itemOtherset,itemDraw,itemAjust,menuShowcurrence,itemexit;
+	public JTextArea txtinput,txtshow;
+	JFrame Frame;//窗体
+
+	public void Creat(String Title){
+		JMenu mfile,majust,mexit;//菜单项
+		JMenuBar menubar;//菜单栏
+		
+		
+	    Frame=new JFrame(Title);
+	    menubar=new JMenuBar();
+		mfile=new JMenu("文件");
+		 itemOpen=new JMenuItem("打开"); 
+		 itemSave=new JMenuItem("保存");
+		 itemDelte=new JMenuItem("删除");
+		mfile.add(itemOpen);mfile.add(itemSave);mfile.add(itemDelte);
+	    majust=new JMenu("平差");
+		 itemDraw=new JMenuItem("图形显示"); 
+		 itemAjust=new JMenuItem("平差");
+		 menuShowcurrence=new JMenuItem("精度显示");
+		majust.add(itemDraw);majust.add(itemAjust);majust.add(menuShowcurrence);
+		 mexit=new JMenu("退出");
+		 itemexit=new JMenuItem("退出");
+		 mexit.add(itemexit);
+		menubar.add(mfile);menubar.add(majust);menubar.add(mexit);
+		
+	    Frame.setVisible(true);
+	    Frame.setSize(1000, 750);
+	    Frame.setLocation(300, 300);
+		Frame.setJMenuBar(menubar);
+		Frame.validate();
+		Frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+		
+		txtinput=new JTextArea();txtshow=new JTextArea();
+		JPanel panel=new JPanel();
+		panel.setLayout(new GridLayout(1,2));
+		panel.add(new JScrollPane(txtinput));panel.add(new JScrollPane(txtshow));
+		Frame.add(panel,BorderLayout.CENTER);
+	
+		
+		itemSave.setEnabled(false);itemDelte.setEnabled(false);
+		itemDraw.setEnabled(false);itemAjust.setEnabled(false);menuShowcurrence.setEnabled(false);
+	}
+}
+
+class First{
+	public static void Creat() {
+		JFrame MyFrame=new JFrame("选择平差的类型");
+		MyFrame.setBounds(100,100,300,300);
+		
+		JButton BShuizhun = new JButton("水准网计算");
+		JButton BBianjiao = new JButton("边角网计算");
+		JButton BExit = new JButton("退出");
+		
+		BShuizhun.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				WindowsShuizhun shuizhun=new WindowsShuizhun();
+				shuizhun.ShuizhunCreat();
+			}
+		});
+		
+		BBianjiao.addActionListener(new ActionListener(){
+			public void actionPerformed(ActionEvent e) {
+				WindowsBianjiao bianjiao=new WindowsBianjiao();
+				bianjiao.BianjiaoCreat();
+			}
+		  });
+		
+		BExit.addActionListener(new ActionListener(){
+			public void actionPerformed(ActionEvent e) {
+				System.exit(0);
+			}
+		  });
+		
+		
+		JPanel panel=new JPanel();
+		panel.setLayout(new GridLayout(3,1));
+		panel.add(BShuizhun);panel.add(BBianjiao);panel.add(BExit);
+		MyFrame.add(panel,BorderLayout.CENTER);
+  
+
+		MyFrame.setVisible(true);
+		MyFrame.validate();
+		MyFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+	}
+	
+	
+}
+
+class WindowsShuizhun{
+    static String Pathname=null;
+	static String Sshow="数据处理过程\r\n"; 
+	static ShuizhunInajust Ajustshuizhun=new ShuizhunInajust();
+	static java.text.DecimalFormat Format=new java.text.DecimalFormat("0.000");
+	
+	public void ShuizhunCreat() {
+		UI UIshuizhun=new UI();//建立水准UI界面
+		UIshuizhun.Creat("水准计算界面");
+		ShuizhunFileInput Data=new ShuizhunFileInput();//建立文件输入类对象
+//***************************************************************************
+		//打开文件监听器
+		
+		UIshuizhun.itemOpen.addActionListener(new ActionListener(){
+			public void actionPerformed(ActionEvent e) {
+				  JFileChooser fcDlg = new JFileChooser();//文件选择框
+			      fcDlg.setDialogTitle("请选择数据文件");//选择框的名称
+			      FileNameExtensionFilter filter = new FileNameExtensionFilter("文本文件(*.txt)", "txt");//文件筛选
+			      fcDlg.setFileFilter(filter);
+			      int returnVal = fcDlg.showOpenDialog(null);//如果选择了，那么打开
+			      if (returnVal == JFileChooser.APPROVE_OPTION) {
+			          Pathname = fcDlg.getSelectedFile().getPath();//获得根目录
+			      }
+			      
+			      Data.ReadShuizhun(Pathname);//读取文件
+				  UIshuizhun.txtinput.setText(Data.SData);//显示出来
+				  
+				  UIshuizhun.itemSave.setEnabled(true);
+				  UIshuizhun.itemDelte.setEnabled(true);
+				  UIshuizhun.itemAjust.setEnabled(true);
+			}
+		});	
+//******************************************************************************		
+		//保存结果监听器
+		UIshuizhun.itemSave.addActionListener(new ActionListener(){
+			public void actionPerformed(ActionEvent e) {
+				JFileChooser fcDlg = new JFileChooser();
+			      fcDlg.setDialogTitle("请保存路径");
+			      int returnVal = fcDlg.showSaveDialog(null);
+			      if (returnVal == JFileChooser.APPROVE_OPTION) {
+			          Pathname = fcDlg.getSelectedFile().getParent();
+			      }
+			      File Result=new File(Pathname,"ShuizhunResult.txt");
+			      byte b[]=Sshow.getBytes();
+			      try { FileOutputStream out=new FileOutputStream(Result);
+			            out.write(b);
+			            out.close();
+			      }catch (IOException e1) {
+			    	  System.out.println(e1);
+			      }
+			}
+		});
+//*******************************************************************************
+		//删除监听器
+		UIshuizhun.itemDelte.addActionListener(new ActionListener(){
+			public void actionPerformed(ActionEvent e) {
+				UIshuizhun.txtinput.setText("");
+				UIshuizhun.txtshow.setText("");
+				Data.SData="";Sshow="";
+			}
+		});
+		
+//*******************************************************************************		
+      //退出
+		UIshuizhun.itemexit.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				UIshuizhun.Frame.dispose();
+			}
+		});
+//*******************************************************************************
+	//显示图形
+		UIshuizhun.itemDraw.addActionListener(new ActionListener(){
+			public void actionPerformed(ActionEvent e) {
+				DrawShuizhun Paint = new DrawShuizhun();
+				Paint.Creat(Ajustshuizhun);    
+			}
+		});
+//*****************************************************************************
+		//平差計算按鈕監聽器
+		//平差計算
+		UIshuizhun.itemAjust.addActionListener(new ActionListener(){
+		public void actionPerformed(ActionEvent e) {	
+		   int i,j; 
+	   Ajustshuizhun.Process(Data);
+		//打印出中间的平差矩阵
+		Ajustshuizhun.Szhongjian+="误差方程为：\r\n";
+		for (i=0;i<=Data.Obsercount-1;i++) {
+			for (j=0;j<=Data.Unkonwcount-1;j++) {
+				Ajustshuizhun.Szhongjian+=Format.format(Ajustshuizhun.Aarry[i][j])+",  ";
+			}
+			Ajustshuizhun.Szhongjian+=Format.format(Ajustshuizhun.l[i][0]*1000)+"\r\n";
+		}
+		//建立一个间接平差对象,并进行平差
+		Ajustshuizhun.Caculate();
+		for (i=0;i<=Data.Unkonwcount-1;i++) {
+			Ajustshuizhun.Szhongjian+="未知点"+Data.PointArry[Data.Konwcount+i].Pname+"平差后高程为："+Format.format(Ajustshuizhun.MX.get(i, 0))+"\r\n";
+		}
+		UIshuizhun.txtshow.setText(Sshow+Ajustshuizhun.Szhongjian);
+		Sshow+=Ajustshuizhun.Szhongjian;
+		Ajustshuizhun.Szhongjian="";
+		
+		UIshuizhun.itemDraw.setEnabled(true);
+		UIshuizhun.menuShowcurrence.setEnabled(true);
+			}
+		});//監聽器準備完畢	
+//********************************************************************************
+	   //精度顯示監聽器
+	   UIshuizhun.menuShowcurrence.addActionListener(new ActionListener() {
+		   public void actionPerformed(ActionEvent e) {
+			   String Sjingdu="精度统计:\r\n";
+			   int i,j;
+			   UIshuizhun.txtshow.setText("");//初始化文本框
+			   
+			   Sjingdu+="单位权中误差为："+Format.format(Ajustshuizhun.Det0)+"\r\n";
+			   for (i=0;i<=Data.Unkonwcount-1;i++) {
+				   Sjingdu=Sjingdu+Data.PointArry[i+Data.Konwcount].Pname+"与改正后点的协方差：";
+				   for (j=0;j<=Data.Unkonwcount-1;j++)
+					   Sjingdu=Sjingdu+Format.format(Math.sqrt(Ajustshuizhun.MqXX.get(i, j)))+",  ";
+				   Sjingdu=Sjingdu+"\r\n";
+			   }
+			   
+			   for (i=0;i<=Data.Unkonwcount-1;i++) {
+				   Sjingdu=Sjingdu+Data.PointArry[i+Data.Konwcount].Pname+"的观测值改正数的中误差是：";
+				   for (j=0;j<=Data.Unkonwcount-1;j++)
+					   Sjingdu=Sjingdu+Format.format(Math.sqrt(Ajustshuizhun.Mqvv.get(i, j)))+",  ";
+				   Sjingdu=Sjingdu+"\r\n";
+			   }
+			   
+			   for (i=0;i<=Data.Obsercount-1;i++) {
+				   Sjingdu=Sjingdu+Data.SideArry[i].Pstart.Pname+Data.SideArry[i].Pend.Pname+"与其他观测边的协方差：";
+				   for (j=0;j<=Data.Obsercount-1;j++)
+					   Sjingdu=Sjingdu+Format.format(Math.sqrt(Ajustshuizhun.Mqll.get(i, j)))+",  ";
+				   Sjingdu=Sjingdu+"\r\n";
+			   }
+			   
+			   for (i=0;i<=Data.Obsercount-1;i++) {
+				   Sjingdu=Sjingdu+Data.SideArry[i].Pstart.Pname+Data.SideArry[i].Pend.Pname+"与其他观测值最或然值中误差是：";
+				   for (j=0;j<=Data.Obsercount-1;j++)
+					   Sjingdu=Sjingdu+Format.format(Math.sqrt(Ajustshuizhun.Mqll1.get(i, j)))+",  ";
+				   Sjingdu=Sjingdu+"\r\n";
+			   }
+			   
+			   UIshuizhun.txtshow.setText(Sshow+Sjingdu);
+			   Sshow+=Sjingdu;
+		   }
+	});//監聽器準備完畢		
+	}
+}
+
+class WindowsBianjiao{
+	static String Pathname=null;
+	static String Sshow="数据处理过程\r\n"; 
+	static BianjiaoAjust Ajustbianjiao=new BianjiaoAjust();
+	static java.text.DecimalFormat Format=new java.text.DecimalFormat("0.0000");
+	
+	
+	public void BianjiaoCreat() {
+		UI UIbianjiao=new UI();//建立水准UI界面
+	    BianjiaoInput Data=new BianjiaoInput();
+		UIbianjiao.Creat("边角网计算界面");	
+//***************************************************************************
+	   //打开文件监听器
+		UIbianjiao.itemOpen.addActionListener(new ActionListener(){
+			public void actionPerformed(ActionEvent e) {
+				  
+				  JFileChooser fcDlg = new JFileChooser();//文件选择框
+			      fcDlg.setDialogTitle("请选择数据文件");//选择框的名称
+			      FileNameExtensionFilter filter = new FileNameExtensionFilter("文本文件(*.txt)", "txt");//文件筛选
+			      fcDlg.setFileFilter(filter);
+			      int returnVal = fcDlg.showOpenDialog(null);//如果选择了，那么打开
+			      if (returnVal == JFileChooser.APPROVE_OPTION) {
+			          Pathname = fcDlg.getSelectedFile().getPath();//获得根目录
+			      }
+			      
+			      Data.ReadBianjiao(Pathname);//读取文件
+			      UIbianjiao.txtinput.setText(Data.SData);//显示出来
+				  
+			      UIbianjiao.itemSave.setEnabled(true);
+			      UIbianjiao.itemDelte.setEnabled(true);
+			      UIbianjiao.itemAjust.setEnabled(true);
+			}
+		});	
+		
+//********************************************************************************
+   //精度顯示監聽器
+   UIbianjiao.menuShowcurrence.addActionListener(new ActionListener() {
+	   public void actionPerformed(ActionEvent e) {
+		   String Sjingdu="精度统计:\r\n";
+		   int i;
+		   UIbianjiao.txtshow.setText("");//初始化文本框
+		   
+		   Sjingdu+="单位权中误差为："+Format.format(Ajustbianjiao.Det0)+"\r\n";
+		 
+		   for (i=0;i<=Ajustbianjiao.Mrevernaa.getRowDimension()/2-1;i++) {
+			   Sjingdu=Sjingdu+"第"+i+"个未知点X的中误差为"+Format.format(Math.sqrt(Math.abs(Ajustbianjiao.Mrevernaa.get(2*i, 2*i))))+",";
+			   Sjingdu=Sjingdu+"第"+i+"个未知点Y的中误差为"+Format.format(Math.sqrt(Math.abs(Ajustbianjiao.Mrevernaa.get(2*i+1,2*i+1))));
+			   Sjingdu=Sjingdu+"\r\n";
+		   }
+		   
+		   for (i=0;i<=Ajustbianjiao.Mqvv.getRowDimension()-1;i++) 
+			   Sjingdu=Sjingdu+"第"+i+"个观测值的改正数中误差为："+Format.format(Math.sqrt(Math.abs(Ajustbianjiao.Mqvv.get(i, i))))+"\r\n";
+		   UIbianjiao.txtshow.setText(Sshow+Sjingdu);
+		   Sshow+=Sjingdu;
+	       }
+        });
+ //************************************************************************
+	//保存结果监听器
+	UIbianjiao.itemSave.addActionListener(new ActionListener(){
+		public void actionPerformed(ActionEvent e) {
+			JFileChooser fcDlg = new JFileChooser();
+		      fcDlg.setDialogTitle("请保存路径");
+		      int returnVal = fcDlg.showSaveDialog(null);
+		      if (returnVal == JFileChooser.APPROVE_OPTION) {
+		          Pathname = fcDlg.getSelectedFile().getParent();
+		      }
+		      File Result=new File(Pathname,"BianjiaoResult.txt");
+		      byte b[]=Sshow.getBytes();
+		      try { FileOutputStream out=new FileOutputStream(Result);
+		            out.write(b);
+		            out.close();
+		      }catch (IOException e1) {
+		    	  System.out.println(e1);
+		      }
+		}
+	});
+	//*****************************************************************************
+			//平差計算按鈕監聽器
+			//平差計算
+			UIbianjiao.itemAjust.addActionListener(new ActionListener(){
+			public void actionPerformed(ActionEvent e) {	
+			   int i,j; 
+		   Ajustbianjiao.Process(Data);
+			//打印出中间的平差矩阵
+		   UIbianjiao.txtshow.setText(" ");
+		   String Szhongjian;
+		   Sshow="";
+			Szhongjian="误差方程为：\r\n";
+			for (i=0;i<=Ajustbianjiao.Aarry.length-1;i++) {
+				for (j=0;j<=2*Data.Unkonwcount-1;j++) {
+					Szhongjian+=Format.format(Ajustbianjiao.Aarry[i][j])+",  ";
+				}
+				Szhongjian+=Format.format(Ajustbianjiao.larry[i][0]*1000)+"\r\n";
+			}
+			
+			//建立一个间接平差对象,并进行平差
+			Ajustbianjiao.Caculate();
+			for (i=0;i<=Data.Unkonwcount-1;i++) {
+				Szhongjian+="未知点"+Data.PointArry[Data.Konwcount+i].Pname+"平差后X坐标为："+Format.format(Ajustbianjiao.MX.get(2*i, 0))
+				+"平差后Y坐标为："+Format.format(Ajustbianjiao.MX.get(2*i+1, 0))+"\r\n";
+			}
+			UIbianjiao.txtshow.setText(Sshow+Szhongjian);
+			Sshow+=Szhongjian;
+			
+			UIbianjiao.itemDraw.setEnabled(true);
+			UIbianjiao.menuShowcurrence.setEnabled(true);
+				}
+			});//監聽器準備完畢
+	//*******************************************************************************
+	//显示图形
+		UIbianjiao.itemDraw.addActionListener(new ActionListener(){
+			public void actionPerformed(ActionEvent e) {
+				DrawBianjiao Paint = new DrawBianjiao();
+				Ajustbianjiao.GetDm();
+				Paint.Creat(Ajustbianjiao.PointArry,Ajustbianjiao.BearingArry,Ajustbianjiao.SideArry);    
+			}
+		});
+//*********************************************************************
+			//退出
+			UIbianjiao.itemexit.addActionListener(new ActionListener() {
+				public void actionPerformed(ActionEvent e) {
+					UIbianjiao.Frame.dispose();
+				}
+			});
+	
+	}
+		
+}
+
