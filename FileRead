@@ -1,0 +1,436 @@
+package com.Benjohn.com;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
+
+//水准文件的输入
+class ShuizhunFileInput {
+	
+	public Point []PointArry;//点类数组
+	public Side []SideArry;//边类数组
+	public int Konwcount ,Unkonwcount,Obsercount,Count,Error;//已知点个数，未知点个数，观测值个数，总点数
+	public String SData;
+	public void ReadShuizhun(String Pathname) {
+		try {//防止文件建立或读取失败，用catch捕捉错误并打印
+			/* 读入TXT文件 */  
+        File filename = new File(Pathname); // 要读取以上路径的文件  
+        InputStreamReader reader = new InputStreamReader(new FileInputStream(filename)); // 建立一个输入流对象reader  
+        BufferedReader br = new BufferedReader(reader); // 建立一个对象，它把文件内容转成计算机能读懂的语言  
+        String line = "";
+        
+        //第一行读取
+        line = br.readLine();  
+        String[] Stemp=line.split(","); 
+        SData="测量员"+Stemp[0]+","+"记录员"+Stemp[1]+","+"日期"+Stemp[2]+"\r\n";
+        
+        
+        //第二行读取
+        line = br.readLine();  
+        Stemp=line.split(",");
+         Konwcount = Integer.parseInt(Stemp[0]);
+         Unkonwcount= Integer.parseInt(Stemp[1]);
+         Obsercount = Integer.parseInt(Stemp[2]);
+         SData=SData+"已知点个数："+Stemp[0]+","+"未知点个数："+Stemp[1]+","+"观测值个数："+Stemp[2]+"\r\n";
+        //定义点类数组，大小为点的总个数，并且将其初始化
+        Count=Konwcount+Unkonwcount;
+        PointArry=new Point[Count];
+        
+        //第三行读取
+        line = br.readLine();  
+        Stemp=line.split(",");
+        switch (Stemp[0]) {
+        case "0" : Error=Integer.parseInt(Stemp[1]);
+        case "A" : Error=4;
+        case "B" : Error=8;
+        case "C" : Error=12;
+        case "D" : Error=20;
+        }
+        
+        //读取第四行
+        line = br.readLine();  
+        Stemp=line.split(",");
+        SData=SData+"点名分别为：\r\n";
+        int i,j;
+        for (i=0;i<=Count-1;i++){
+        	PointArry[i] = new Point();
+        	PointArry[i].Pname=Stemp[i];
+        	PointArry[i].Order =i;
+        	SData=SData+Stemp[i]+",";
+        }
+        SData=SData+"\r\n";
+        
+        //读取第五行
+        line = br.readLine();  
+        Stemp=line.split(",");
+        SData=SData+"已知点高程为：\r\n";
+        for (i=0;i<=Konwcount-1;i++) {
+        	PointArry[i].H=Double.parseDouble(Stemp[i]);
+        	SData=SData+PointArry[i].Pname +":  "+ Stemp[i]+"\r\n";
+        }
+        //定义边类数组
+        SideArry =new Side[Obsercount];
+        SData=SData+"起始点  "+"终止点  "+"高差值（m） "+"路线长度（km）\r\n";
+        //将数据放入边类数组
+        for (i=0;i<=Obsercount-1;i++){ 
+        	SideArry[i]=new Side();
+            line = br.readLine(); 
+            Stemp=line.split(",");
+            //如果找到
+            for (j=0;j<=Count-1;j++) {
+            	if (Stemp[0].equals(PointArry[j].Pname)) 
+            		SideArry[i].Pstart=PointArry[j];          	 	
+            	if (Stemp[1].equals(PointArry[j].Pname))
+            		SideArry[i].Pend=PointArry[j];  
+            }
+            SideArry[i].Dispersion=Double.parseDouble(Stemp[2]);
+            SideArry[i].Distance=Double.parseDouble(Stemp[3]);
+            SData=SData+Stemp[0]+",         "+Stemp[1]+",         "+Stemp[2]+",          "+Stemp[3]+"\r\n";
+        }
+			br.close();
+		}catch (Exception e) {
+			e.printStackTrace();
+		}	
+	}
+	
+}
+//************************************************
+
+class BianjiaoInput{
+	public Point []PointArry;//点类数组
+	public Side []SideArry;//边类数组
+	public Bearing[] BearingArry;//方向数组
+	public String SData;
+	public double SideError1,SideError2,AngleError;
+	public int AngleObserCount,SideObserCount;
+	public int Konwcount,Unkonwcount,Count;
+	public int Net;
+	static double PI=Math.PI;
+
+//判断是否为已知点
+    public boolean IsKnow(Point P) {
+		boolean bl = false ;
+		if (P.Order<=Konwcount-1 ) 
+			return !bl;
+		else 
+			return bl;
+		}
+//两个已知点得到坐标方位角
+  //得到边的方位角
+  	public double getAzimuth(Point Pstart,Point Pend) {
+  		double DetX,DetY,Azimuth;
+  		DetX=Pend.X-Pstart.X;DetY=Pend.Y-Pstart.Y;
+  		if (Math.abs(DetX)<=0.00001) {
+  			if (DetY>0) Azimuth=PI/2;
+  			else Azimuth=PI*3/2;
+  		}
+  		else {
+  			Azimuth=Math.atan(DetY/DetX);
+  			if (DetX<0) Azimuth+=PI;
+  			else if (DetX>0 & DetY<0) Azimuth+=2*PI;
+  		}
+  		return Azimuth;
+  	}
+//计算两个已知点的距离
+  	public double getDistance(String name1,String name2) {
+  		Point P1=FindPoint(name1);Point P2=FindPoint(name2);
+  		Double Dx=P2.X-P1.X;Double Dy=P2.Y-P1.Y;
+  		return Math.sqrt(Dx*Dx+Dy*Dy);
+  	}
+//通过点名寻找点	
+	private Point FindPoint(String Name) {
+		int i = 0;
+		for (i=0;i<=PointArry.length-1;i++) {
+			if (Name.equals(PointArry[i].Pname)) break;
+		}
+		return PointArry[i];     
+	}
+
+//通过点名寻找边
+	private Side FindSide(String PstartName,String PendName) {
+		int i = 0;
+		for (i=0;i<=SideArry.length-1;i++) {
+			if ( PstartName.equals(SideArry[i].Pstart.Pname)   
+				&& PendName.equals(SideArry[i].Pend.Pname)  ) break;
+		}
+		if (i>=SideArry.length) return null;
+		return SideArry[i];     
+	}
+//通过点名寻找边	
+	private Bearing FindBearing(String PstartName,String PendName) {
+		int i = 0;
+		for (i=0;i<=BearingArry.length-1;i++) {
+			if ( PstartName.equals(BearingArry[i].Pstart.Pname)   
+					&& PendName.equals(BearingArry[i].Pend.Pname)) break;
+		}
+		if (i>=BearingArry.length) return null;
+		else  return BearingArry[i];
+		
+	}
+//前方交会
+//输入数据为两条边
+//输出为未知点坐标
+	private double[] ForIntersec(String name1,String name2,String name3) {
+		double Ctana,Ctanb;double[] PointXY=new double[2];
+		Bearing C1,C2;
+		Bearing a,b;
+		Point A,B;
+		A=FindPoint(name1);B=FindPoint(name2);
+		a=FindBearing(name2,name3);b=FindBearing(name1,name3);
+		C2=FindBearing(name2,name1);C1=FindBearing(name1,name2);
+		if (a!=null && b!=null && C1!=null && C2!=null) {
+		Ctana=1/Math.tan(C1.AngleHu-b.AngleHu);
+		Ctanb=1/Math.tan(a.AngleHu-C2.AngleHu);
+		
+		PointXY[0]=(A.X*Ctanb+B.X*Ctana+(A.Y-B.Y))/(Ctanb+Ctana);
+		PointXY[1]=(A.Y*Ctanb+B.Y*Ctana+(B.X-A.X))/(Ctanb+Ctana);
+		}
+		return PointXY;
+	}
+//前方交会
+	private double[] ForIntersec(String name1,String name2,double Angle1,double Angle2) {
+		double Ctana,Ctanb;double[] PointXY=new double[2];
+		Point A,B;
+		A=FindPoint(name1);B=FindPoint(name2);
+		Ctana=1/Math.tan(Angle1);Ctanb=1/Math.tan(Angle2);
+		PointXY[0]=(A.X*Ctanb+B.X*Ctana+(B.Y-A.Y))/(Ctana+Ctanb);
+		PointXY[1]=(A.Y*Ctanb+B.Y*Ctana-(B.X-A.X))/(Ctana+Ctanb);
+		return PointXY;
+	}
+	
+//通过三角形三条边得到三个角
+//输出为角的值
+	private double[] GetInnerAngle(String name1,String name2,String name3) {
+		double[] AngleABC=new double[3];
+		double D12,D23,D31;
+		Side S1=FindSide(name1,name2);
+		Side S2=FindSide(name2,name3);
+		Side S3=FindSide(name3,name1);
+		
+		if (S1==null) S1=FindSide(name2,name1);
+		if (S2==null) S2=FindSide(name3,name2);
+		if (S3==null) S3=FindSide(name1,name3);
+		
+		if (S1==null)  D12=getDistance(name1,name2);
+		else D12=S1.ObserDistance;
+		
+		if (S2==null)  D23=getDistance(name3,name2);
+		else D23=S2.ObserDistance;
+		
+		if (S3==null)  D31=getDistance(name1,name3);
+		else D31=S3.ObserDistance;
+		
+		AngleABC[0]=Math.acos((D12*D12+D31*D31-D23*D23)/(2*D12*D31));
+		AngleABC[1]=Math.acos((D12*D12+D23*D23-D31*D31)/(2*D12*D23));
+		AngleABC[2]=Math.acos((D23*D23+D31*D31-D12*D12)/(2*D23*D31));
+		return AngleABC;
+	}
+//极坐标法求未知点坐标
+	private double[] PolarPositionning(String name1,String name2,String name3) {
+		double[] PointXY=new double[2];
+		Bearing A,B,C1,C2;double Angle;
+		A=FindBearing(name2,name3);B=FindBearing(name1,name3);
+		C1=FindBearing(name2,name1);C2=FindBearing(name1,name2);
+		double D;
+		if (A!=null && C1!=null) {
+		  Angle=Math.abs(A.AngleHu-C1.AngleHu);
+		  Angle+=getAzimuth(FindPoint(name2),FindPoint(name1));
+		  Side S=FindSide(name2,name3);
+		  if (S!=null)
+		     D=FindSide(name2,name3).ObserDistance;
+		  else 
+			 {S=FindSide(name3,name2); D=S.ObserDistance;}
+		  if (Angle<0) Angle+=2*PI;
+		  if (Angle>=2*PI) Angle-=2*PI;
+		  Point P=FindPoint(name2);
+		  PointXY[0]=P.X+D*Math.cos(Angle);
+		  PointXY[1]=P.Y+D*Math.sin(Angle);
+		}
+		else if(B!=null && C2!=null) {
+			Angle=Math.abs(C2.AngleHu-B.AngleHu);
+			Angle=getAzimuth(FindPoint(name1),FindPoint(name2))-Angle;
+			Side S=FindSide(name1,name3);
+			if(S !=null)
+			  D=S.ObserDistance;
+			else
+			  {S=FindSide(name3,name1);
+			  D=S.ObserDistance;}
+			  
+			if (Angle<0) Angle+=2*PI;
+			if (Angle>=2*PI) Angle-=2*PI;
+			
+			PointXY[0]=FindPoint(name1).X+D*Math.cos(Angle);
+			PointXY[1]=FindPoint(name1).Y+D*Math.sin(Angle);
+		}
+		return PointXY;
+	}
+	
+	
+//读取边角网数据
+//输入为文件名
+//输出为各类矩阵（进行一部分预处理：近似坐标）
+	public void ReadBianjiao(String Pathname) {
+		try {
+			 File filename = new File(Pathname); // 要读取以上路径的文件
+	         InputStreamReader reader = new InputStreamReader(new FileInputStream(filename)); // 建立一个输入流对象reader  
+	         BufferedReader br = new BufferedReader(reader); // 建立一个对象，它把文件内容转成计算机能读懂的语言  
+	         String line = "";
+	         
+	       //第一行读取
+	          line = br.readLine();  
+	          String[] Stemp=line.split(","); 
+	          SData="测量员"+Stemp[0]+","+"记录员"+Stemp[1]+","+"日期"+Stemp[2]+"\r\n";
+	          
+	       //第二行读取
+	          line = br.readLine();
+	          Net=Integer.parseInt(line);
+	          
+	       //第三行读取
+	          line = br.readLine();  
+	          Stemp=line.split(",");
+	          Konwcount = Integer.parseInt(Stemp[0]);
+	          Unkonwcount= Integer.parseInt(Stemp[1]);
+	          SData="已知点个数"+Stemp[0]+","+"未知点个数"+Stemp[1]+"\r\n";
+	          Count=Konwcount+Unkonwcount;
+	          PointArry=new Point[Count];
+	          
+	       //第四行读取
+	          int i;
+	          line = br.readLine();  
+	          Stemp=line.split(",");
+	          for (i=0;i<=Count-1;i++) {
+	        	  PointArry[i]=new Point();
+	        	  PointArry[i].Pname=Stemp[i];
+	        	  PointArry[i].Order=i;
+	        	  SData+=Stemp[i]+",";
+	        	  }
+	          SData+="\r\n";
+	          SData+="已知点坐标为：\r\n";
+	       //第五行读取
+	          line = br.readLine();  
+	          Stemp=line.split(",");
+	          for (i=0;i<=Konwcount-1;i++) {
+	        	  PointArry[i].X=Double.parseDouble(Stemp[2*i]);
+	              PointArry[i].Y=Double.parseDouble(Stemp[2*i+1]);
+	          SData+=PointArry[i].Pname+":X坐标为： "+PointArry[i].X+",Y坐标为： "+PointArry[i].Y+"\r\n";
+	          }
+	          
+	       //第六行
+	          line = br.readLine();  
+	          Stemp=line.split(",");
+	          SideObserCount=Integer.parseInt(Stemp[0]);
+	          AngleObserCount=Integer.parseInt(Stemp[1]);
+	          SData+="边长观测数为："+Stemp[0]+",方向观测数:"+Stemp[1]+"\r\n";
+	          SideArry=new Side[SideObserCount];
+	          BearingArry=new Bearing[AngleObserCount];
+	          
+	       //第七行
+	          //读取边长中误差
+	        if (SideObserCount!=0) {
+	          line = br.readLine();  
+	          Stemp=line.split(",");
+	          SideError1=Double.parseDouble(Stemp[0]);
+	          SideError2=Double.parseDouble(Stemp[1]);   
+	          SData+="边长误差为："+Stemp[0]+"mm+"+Stemp[1]+"ppm"+"\r\n";
+	       //第八行 
+	         //读取边的信息
+	          SData+="起点	终点	观测边长为"+"\r\n";
+	          for (i=0;i<=SideObserCount-1;i++) {
+	        	  line = br.readLine();  
+		          Stemp=line.split(",");
+		          SideArry[i]=new Side();
+	        	  SideArry[i].Pstart=FindPoint(Stemp[0]);
+	        	  SideArry[i].Pend=FindPoint(Stemp[1]);
+	        	  SideArry[i].ObserDistance=Double.parseDouble(Stemp[2]);
+	        	  SData+=Stemp[0]+"	"+Stemp[1]+"	"+Stemp[2]+"\r\n";
+	          }
+	        }
+	        //读取角度中误差
+	          if (AngleObserCount!=0) {
+	          line = br.readLine();  
+	          AngleError=Double.parseDouble(line);
+	          SData+="角度中误差为："+line+"\r\n";
+	       //第八行
+	          SData+="起点	终点	观测边长"+"\r\n";
+	          for (i=0;i<=AngleObserCount-1;i++) {
+	        	  line = br.readLine();  
+		          Stemp=line.split(",");
+		          BearingArry[i]=new Bearing();
+		          
+	        	  BearingArry[i].Pstart=FindPoint(Stemp[0]);
+	        	  BearingArry[i].Pend=FindPoint(Stemp[1]);
+	        	  
+	        	  BearingArry[i].AngleDu=Double.parseDouble(Stemp[2]);
+	        	  BearingArry[i].Du2Hu();
+	        	  SData+=Stemp[0]+"	"+Stemp[1]+"	"+Stemp[2]+"\r\n";
+	           }
+	          }
+	       //如果是测边网或者测角网计算近似坐标
+	          //如果是测角网
+	          if (Net==1) {
+	        	  for (i=0;i<=Unkonwcount-1;i++) {
+		        	  line = br.readLine();  
+			          Stemp=line.split(",");
+			          FindPoint(Stemp[2]).X=ForIntersec(Stemp[0],Stemp[1],Stemp[2])[0];
+			          FindPoint(Stemp[2]).Y=ForIntersec(Stemp[0],Stemp[1],Stemp[2])[1];	
+			          if (FindPoint(Stemp[2]).X==0 && FindPoint(Stemp[2]).Y==0 ) {
+			        	  line = br.readLine();  
+				          Stemp=line.split(",");
+				          FindPoint(Stemp[0]).X=Double.parseDouble(Stemp[1]);
+				          FindPoint(Stemp[0]).Y=Double.parseDouble(Stemp[2]);
+			          }
+	        	  }
+	          }
+	          //如果是测边网
+	          double[] AngleABC=new double[3];
+	          if (Net==2) {
+	        	  for (i=0;i<=Unkonwcount-1;i++) {
+	        	   line = br.readLine(); 
+		           Stemp=line.split(",");
+		           AngleABC=GetInnerAngle(Stemp[0],Stemp[1],Stemp[2]);
+		           FindPoint(Stemp[2]).X=ForIntersec(Stemp[0],Stemp[1],AngleABC[0],AngleABC[1])[0];
+		           FindPoint(Stemp[2]).Y=ForIntersec(Stemp[0],Stemp[1],AngleABC[0],AngleABC[1])[1];
+	        	  }
+	          }
+	          //边角同测网
+	          if (Net==3) {
+	        	  for (i=0;i<=Unkonwcount-1;i++) {
+	        	  line = br.readLine();  
+		          Stemp=line.split(",");
+		          FindPoint(Stemp[2]).X=PolarPositionning(Stemp[0],Stemp[1],Stemp[2])[0];
+		          FindPoint(Stemp[2]).Y=PolarPositionning(Stemp[0],Stemp[1],Stemp[2])[1];
+	                   }
+	        }
+	         
+	          for (i=0;i<=SideArry.length-1;i++)  {
+	        	  SideArry[i].getAzimuth();
+	        	  SideArry[i].getDistance();
+	        	  }
+	          for (i=0;i<=BearingArry.length-1;i++) {
+	        	  BearingArry[i].GetDistance();
+	        	  BearingArry[i].getAzimuth();
+	          }
+	          java.text.DecimalFormat Format=new java.text.DecimalFormat("#.000");
+	          for (i=Konwcount;i<=PointArry.length-1;i++) 
+	        	 SData+=PointArry[i].Pname+"近似点坐标为："+Format.format(PointArry[i].X)+","+Format.format(PointArry[i].Y)+"\r\n";
+	          
+	        br.close();
+		}catch (Exception e) {e.printStackTrace();}
+      }
+}
+public class FileRead{
+   public static void main(String args[]) {
+	   BianjiaoInput Data =new BianjiaoInput();
+	   String Pathname= "B:"+File.separator+"bian.txt" ;
+	   Data.ReadBianjiao(Pathname);
+	   int i;
+	   for (i=0;i<=Data.SideObserCount-1;i++) {
+		  System.out.println(Data.SideArry[i].ObserDistance);
+		  System.out.println(Data.SideArry[i].Distance);
+	   }
+	   for (i=0;i<=Data.Count-1;i++) {
+			  Data.PointArry[i].Print();
+	   }   
+   }
+}
