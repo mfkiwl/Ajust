@@ -1,0 +1,9 @@
+package com.Benjohn.com;
+
+
+public class mainCode {
+	public static void main(String args[]) {
+		First FristWindow =new First();
+		First.Creat();
+	}//程序入口
+}
