@@ -1,0 +1,141 @@
+package com.Benjohn.com;
+
+//点类
+class Point{
+	public double X,Y,H;//X,Y坐标值
+	public String Pname;//点名,点在数组中的序号
+	public int Order;
+	public double dE,dF;//误差椭圆长半轴与短半轴
+	public double Angle;//误差椭圆长半轴的方位角
+	double dMx,dMy,dMxy,dM;//点位误差
+	
+	double GetDM() {
+		return Math.sqrt(dMx*dMx+dMy*dMy);
+	}
+	// 判断是点是否为点是否为空
+	public boolean IsEmty() {
+		boolean bl = false ;
+		if (X==0 && Y==0 && H==0) 
+			return !bl;
+		else 
+			return bl;
+	}
+	
+	public void Print() {
+		  System.out.println("名字是："+ Pname + ":X:" + X +" Y:"+Y);
+	}
+	
+	public void GetQ(double Det0) {
+		double K,QEE;
+		K=Math.sqrt(Math.pow((dMx-dMy),2)+4*dMxy);
+		QEE=(dMx+dMy+K)/2;
+		dE=Det0*Math.sqrt(QEE);
+		dF=Det0*Math.sqrt((dMx+dMy-K)/2);
+	    Angle=Math.atan((QEE-dMx)/dMxy);
+	}
+	
+}
+//边观测值类（矢量图形有方向）
+class Side {
+	static final double PI=Math.PI;
+	public Point Pstart, Pend;//起点和终点
+	public double Distance,Dispersion,ObserDistance;//距离值和高差
+	
+	//得到P1P2的距离
+	public double getDistance() {
+		Distance=Math.sqrt((Pend.X-Pstart.X)*(Pend.X-Pstart.X)+(Pend.Y-Pstart.Y)*(Pend.Y-Pstart.Y));
+		return Distance;
+	}
+	
+   
+	public double Azimuth;//边的方位角
+	
+	//得到边的方位角
+	public double getAzimuth() {
+		double DetX,DetY;
+		DetX=Pend.X-Pstart.X;DetY=Pend.Y-Pstart.Y;
+		if (Math.abs(DetX)<=0.00001) {
+			if (DetY>0) Azimuth=PI/2;
+			else Azimuth=PI*3/2;
+		}
+		else {
+			Azimuth=Math.atan2(DetY, DetX);
+			if (DetX<0) Azimuth+=PI;
+			else if(DetX>0 & DetY<0) Azimuth+=2*PI;
+		}
+		return Azimuth;
+	}
+	
+	//判断是否为空对象
+	public boolean IsEmty() {
+		boolean bl = false ;
+		if (Pstart.IsEmty() && Pend.IsEmty()) 
+			return !bl;
+		else 
+			return bl;
+	}
+	
+	
+	//得到边的高差
+	public double getDispersion(){
+		Dispersion=Pend.H-Pstart.H;
+		return Dispersion;
+	}
+}
+//方向观测类（有方向）以顺时针为正
+class Bearing {
+	static final double PI=Math.PI;
+	public Point Pstart,Pend;
+	public double Distance;
+	public double AngleDu,AngleHu;//角度值
+	public double Azimuth;
+	public double Hu2Du() {
+		int fen,du;
+		double miao=0.0,Hu;
+		Hu=AngleHu*180/PI; du=(int)Hu;
+		Hu=(AngleHu-du)*60; fen=(int)Hu;
+		Hu=(Hu-fen)*60; miao=Hu;
+		if (miao==60.0)	fen++;
+		if (fen==60) du++;
+		AngleDu=du+fen/100+miao/10000;
+		return AngleDu;
+	}
+	
+   public double Du2Hu() {
+		int du,fen;double miao,Du;
+		du=(int)AngleDu;Du=(AngleDu-du)*100;
+		fen=(int)Du;miao=(Du-fen)*100;
+		AngleHu=(du+fen/60+miao/3600)*PI/180;
+		return AngleHu;
+	}
+   
+   public double GetDistance() {
+	   double DetX,DetY;
+	   DetX=Pend.X-Pstart.X;DetY=Pend.Y-Pstart.Y;
+	   Distance=Math.sqrt(DetY*DetY+DetX*DetX);
+	   return Distance;
+   }
+   
+   
+   public void Print() {
+	   System.out.println(Pstart.Pname+Pend.Pname+" : "+AngleDu+ "   " + Distance );
+   }
+   
+ //得到边的方位角
+ 	public double getAzimuth() {
+ 		double DetX,DetY;
+ 		DetX=Pend.X-Pstart.X;DetY=Pend.Y-Pstart.Y;
+ 		if (Math.abs(DetX)<=0.00001) {
+ 			if (DetY>0) Azimuth=PI/2;
+ 			else Azimuth=PI*3/2;
+ 		}
+ 		else {
+ 			Azimuth=Math.atan2(DetY, DetX);
+ 			if (DetX<0) Azimuth+=PI;
+ 			else if(DetX>0 & DetY<0) Azimuth+=2*PI;
+ 		}
+ 		return Azimuth;
+ 	}
+}
+
+
